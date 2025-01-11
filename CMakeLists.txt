@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.20)
+project(fr LANGUAGES C CXX VERSION 0.1)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_executable(fr main.c parser.c)
+
+find_package(Catch2 REQUIRED)
+add_executable(fr-test fr-test.cpp parser.c)
+target_link_libraries(fr-test Catch2::Catch2WithMain)
+enable_testing()
+include(CTest)
+include(Catch)
+catch_discover_tests(fr-test)
