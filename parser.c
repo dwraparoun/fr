@@ -2,6 +2,12 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+struct Expression initExpression(const char* expr)
+{
+    struct Expression e = { expr, 0, RES_OK, 0, "" };
+    return e;
+}
+
 void consumeCharacter(struct Expression* expr) { expr->currIdx++; }
 
 const char* currentHead(struct Expression* expr)
@@ -22,9 +28,14 @@ void consumeWhitespace(struct Expression* expr)
 
 double readNumber(struct Expression* expr)
 {
-    if (!isdigit(currentCharacter(expr)))
-        __builtin_unreachable();
     consumeWhitespace(expr);
+    if (!isdigit(currentCharacter(expr))) {
+        // should be unreachable
+        expr->result = RES_INTERNAL_ERROR;
+        expr->errIdx = expr->currIdx;
+        expr->errMsg = "Internal error";
+        return 0;
+    }
     double num = atof(currentHead(expr));
     while (isdigit(currentCharacter(expr)))
         consumeCharacter(expr);
@@ -37,8 +48,13 @@ double readNumber(struct Expression* expr)
     return num;
 }
 
-struct Token_t readToken(struct Expression* expr,
-    struct ExpressionParsingResult* exprParsingResult)
+#define RETURN_ON_ERROR(e, r)    \
+    do {                         \
+        if (e->result != RES_OK) \
+            return r;            \
+    } while (0)
+
+struct Token_t readToken(struct Expression* expr)
 {
     consumeWhitespace(expr);
     struct Token_t ret;
@@ -65,7 +81,8 @@ struct Token_t readToken(struct Expression* expr,
     case '8':
     case '9':
         ret.type = TOK_NUMBER;
-        ret.value = readNumber(expr);
+        ret.value = readNumber(expr); //< consumes this and following digit characters
+        RETURN_ON_ERROR(expr, ret); //< should never happen
         break;
     case '+':
         ret.type = TOK_PLUS;
@@ -86,11 +103,9 @@ struct Token_t readToken(struct Expression* expr,
     case '\0':
         break;
     default:
-        if (exprParsingResult) {
-            exprParsingResult->code = RES_INVALID_CHAR;
-            exprParsingResult->errIdx = expr->currIdx;
-            exprParsingResult->errMsg = "Invalid character";
-        }
+        expr->result = RES_INVALID_CHAR;
+        expr->errIdx = expr->currIdx;
+        expr->errMsg = "Invalid character";
         consumeCharacter(expr);
         break;
     }
@@ -99,103 +114,92 @@ struct Token_t readToken(struct Expression* expr,
 
 void unreadToken(struct Expression* expr, struct Token_t* token)
 {
-    expr->currIdx = token->idx;
+    expr->currIdx = token->idx; // roll back read pointer
 }
 
-double evaluatePrimary(struct Expression* expr,
-    struct ExpressionParsingResult* exprParsingResult)
+double evaluatePrimary(struct Expression* expr)
 {
-    struct Token_t token = readToken(expr, exprParsingResult);
-    if (exprParsingResult && exprParsingResult->code != RES_OK)
-        return 0;
+    struct Token_t token = readToken(expr);
+    RETURN_ON_ERROR(expr, 0);
+
     if (token.type == TOK_NUMBER)
         return token.value;
+
     if (token.type == TOK_PLUS)
-        return evaluatePrimary(expr, exprParsingResult);
+        return evaluatePrimary(expr); // e.g. +42.43 or +++42.43
+
     if (token.type == TOK_MINUS)
-        return -evaluatePrimary(expr, exprParsingResult);
+        return -evaluatePrimary(expr); // e.g. -42.43 or ---42.43
+
     if (token.type == TOK_OPEN_PARAN) {
-        double result = evaluateExpression(expr, exprParsingResult);
-        if (exprParsingResult && exprParsingResult->code != RES_OK)
-            return result;
-        token = readToken(expr, exprParsingResult);
+        double result = evaluateExpression(expr);
+        RETURN_ON_ERROR(expr, result);
+        token = readToken(expr);
         if (token.type != TOK_CLOSE_PARAN) {
-            if (exprParsingResult) {
-                exprParsingResult->code = RES_CLOSING_PARAN_MISSING;
-                exprParsingResult->errIdx = expr->currIdx;
-                exprParsingResult->errMsg = "Missing closing brace";
-            }
+            expr->result = RES_CLOSING_PARAN_MISSING;
+            expr->errIdx = expr->currIdx;
+            expr->errMsg = "Missing closing brace";
         }
         return result;
     }
-    if (exprParsingResult) {
-        exprParsingResult->code = RES_INVALID_INPUT;
-        exprParsingResult->errIdx = token.idx;
-        exprParsingResult->errMsg = "Invalid input";
-    }
+    expr->result = RES_INVALID_INPUT;
+    expr->errIdx = token.idx;
+    expr->errMsg = "Invalid input";
     return 0;
 }
 
-double evaluateTerm(struct Expression* expr,
-    struct ExpressionParsingResult* exprParsingResult)
+double evaluateTerm(struct Expression* expr)
 {
-    double left = evaluatePrimary(expr, exprParsingResult);
-    if (exprParsingResult && exprParsingResult->code != RES_OK)
-        return left;
+    double left = evaluatePrimary(expr);
+    RETURN_ON_ERROR(expr, left);
 
-    struct Token_t token = readToken(expr, exprParsingResult);
-    if (exprParsingResult && exprParsingResult->code != RES_OK)
-        return left;
+    struct Token_t token = readToken(expr);
+    RETURN_ON_ERROR(expr, left);
 
     while (token.type != TOK_NONE) {
         switch (token.type) {
         case TOK_MULTIPLY:
-            left *= evaluatePrimary(expr, exprParsingResult);
-            if (exprParsingResult && exprParsingResult->code != RES_OK)
-                return left;
+            left *= evaluatePrimary(expr);
+            RETURN_ON_ERROR(expr, left);
             break;
         case TOK_DIVIDE:
-            left /= evaluatePrimary(expr, exprParsingResult);
-            if (exprParsingResult && exprParsingResult->code != RES_OK)
-                return left;
+            left /= evaluatePrimary(expr);
+            RETURN_ON_ERROR(expr, left);
             break;
         default:
             unreadToken(expr, &token);
             return left;
         }
-        token = readToken(expr, exprParsingResult);
+        token = readToken(expr);
     }
     return left;
 }
 
-double evaluateExpression(struct Expression* expr,
-    struct ExpressionParsingResult* exprParsingResult)
+double evaluateExpression(struct Expression* expr)
 {
-    double left = evaluateTerm(expr, exprParsingResult);
-    if (exprParsingResult && exprParsingResult->code != RES_OK)
-        return left;
+    double left = evaluateTerm(expr);
+    RETURN_ON_ERROR(expr, left);
 
-    struct Token_t token = readToken(expr, exprParsingResult);
-    if (exprParsingResult && exprParsingResult->code != RES_OK)
-        return left;
+    struct Token_t token = readToken(expr);
+    RETURN_ON_ERROR(expr, left);
 
     while (token.type != TOK_NONE) {
         switch (token.type) {
         case TOK_PLUS:
-            left += evaluateTerm(expr, exprParsingResult);
-            if (exprParsingResult && exprParsingResult->code != RES_OK)
-                return left;
+            left += evaluateTerm(expr);
+            RETURN_ON_ERROR(expr, left);
             break;
         case TOK_MINUS:
-            left -= evaluateTerm(expr, exprParsingResult);
-            if (exprParsingResult && exprParsingResult->code != RES_OK)
-                return left;
+            left -= evaluateTerm(expr);
+            RETURN_ON_ERROR(expr, left);
             break;
         default:
             unreadToken(expr, &token);
             return left;
         }
-        token = readToken(expr, exprParsingResult);
+        token = readToken(expr);
     }
     return left;
 }
+
+#undef RETURN_ON_ERROR
