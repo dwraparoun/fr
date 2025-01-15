@@ -42,16 +42,16 @@ struct Token_t readToken(struct Expression* expr,
 {
     consumeWhitespace(expr);
     struct Token_t ret;
-    ret.type = TOKEN_NONE;
+    ret.type = TOK_NONE;
     ret.value = 0.;
     ret.idx = expr->currIdx;
     switch (currentCharacter(expr)) {
     case '(':
-        ret.type = TOKEN_OPEN_PARAN;
+        ret.type = TOK_OPEN_PARAN;
         consumeCharacter(expr);
         break;
     case ')':
-        ret.type = TOKEN_CLOSE_PARAN;
+        ret.type = TOK_CLOSE_PARAN;
         consumeCharacter(expr);
         break;
     case '0':
@@ -64,23 +64,23 @@ struct Token_t readToken(struct Expression* expr,
     case '7':
     case '8':
     case '9':
-        ret.type = TOKEN_NUMBER;
+        ret.type = TOK_NUMBER;
         ret.value = readNumber(expr);
         break;
     case '+':
-        ret.type = TOKEN_PLUS;
+        ret.type = TOK_PLUS;
         consumeCharacter(expr);
         break;
     case '-':
-        ret.type = TOKEN_MINUS;
+        ret.type = TOK_MINUS;
         consumeCharacter(expr);
         break;
     case '*':
-        ret.type = TOKEN_MULTIPLY;
+        ret.type = TOK_MULTIPLY;
         consumeCharacter(expr);
         break;
     case '/':
-        ret.type = TOKEN_DIVIDE;
+        ret.type = TOK_DIVIDE;
         consumeCharacter(expr);
         break;
     case '\0':
@@ -108,14 +108,18 @@ double evaluatePrimary(struct Expression* expr,
     struct Token_t token = readToken(expr, exprParsingResult);
     if (exprParsingResult && exprParsingResult->code != RES_OK)
         return 0;
-    if (token.type == TOKEN_NUMBER)
+    if (token.type == TOK_NUMBER)
         return token.value;
-    if (token.type == TOKEN_OPEN_PARAN) {
+    if (token.type == TOK_PLUS)
+        return evaluatePrimary(expr, exprParsingResult);
+    if (token.type == TOK_MINUS)
+        return -evaluatePrimary(expr, exprParsingResult);
+    if (token.type == TOK_OPEN_PARAN) {
         double result = evaluateExpression(expr, exprParsingResult);
         if (exprParsingResult && exprParsingResult->code != RES_OK)
             return result;
         token = readToken(expr, exprParsingResult);
-        if (token.type != TOKEN_CLOSE_PARAN) {
+        if (token.type != TOK_CLOSE_PARAN) {
             if (exprParsingResult) {
                 exprParsingResult->code = RES_CLOSING_PARAN_MISSING;
                 exprParsingResult->errIdx = expr->currIdx;
@@ -143,14 +147,14 @@ double evaluateTerm(struct Expression* expr,
     if (exprParsingResult && exprParsingResult->code != RES_OK)
         return left;
 
-    while (token.type != TOKEN_NONE) {
+    while (token.type != TOK_NONE) {
         switch (token.type) {
-        case TOKEN_MULTIPLY:
+        case TOK_MULTIPLY:
             left *= evaluatePrimary(expr, exprParsingResult);
             if (exprParsingResult && exprParsingResult->code != RES_OK)
                 return left;
             break;
-        case TOKEN_DIVIDE:
+        case TOK_DIVIDE:
             left /= evaluatePrimary(expr, exprParsingResult);
             if (exprParsingResult && exprParsingResult->code != RES_OK)
                 return left;
@@ -175,14 +179,14 @@ double evaluateExpression(struct Expression* expr,
     if (exprParsingResult && exprParsingResult->code != RES_OK)
         return left;
 
-    while (token.type != TOKEN_NONE) {
+    while (token.type != TOK_NONE) {
         switch (token.type) {
-        case TOKEN_PLUS:
+        case TOK_PLUS:
             left += evaluateTerm(expr, exprParsingResult);
             if (exprParsingResult && exprParsingResult->code != RES_OK)
                 return left;
             break;
-        case TOKEN_MINUS:
+        case TOK_MINUS:
             left -= evaluateTerm(expr, exprParsingResult);
             if (exprParsingResult && exprParsingResult->code != RES_OK)
                 return left;

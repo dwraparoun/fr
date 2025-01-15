@@ -7,19 +7,19 @@ struct Expression {
     unsigned currIdx;
 };
 
-enum ToketType {
-    TOKEN_NONE,
-    TOKEN_OPEN_PARAN,
-    TOKEN_CLOSE_PARAN,
-    TOKEN_NUMBER,
-    TOKEN_PLUS,
-    TOKEN_MINUS,
-    TOKEN_MULTIPLY,
-    TOKEN_DIVIDE,
+enum TokenType {
+    TOK_NONE,
+    TOK_OPEN_PARAN,
+    TOK_CLOSE_PARAN,
+    TOK_NUMBER,
+    TOK_PLUS,
+    TOK_MINUS,
+    TOK_MULTIPLY,
+    TOK_DIVIDE,
 };
 
 struct Token_t {
-    enum ToketType type;
+    enum TokenType type;
     unsigned idx;
     double value;
 };

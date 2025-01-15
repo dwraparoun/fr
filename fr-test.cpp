@@ -42,6 +42,24 @@ TEST_CASE("Addition of two integer operands", "[parser]")
     }
 }
 
+TEST_CASE("Addition of two negative integers", "[parser]")
+{
+    Expression expr = { "-553 + -3", 0 };
+    SECTION("Check expression evaluation")
+    {
+        CHECK(evaluateExpression(&expr, 0) == -556);
+    }
+}
+
+TEST_CASE("Multiplication of two negative integers", "[parser]")
+{
+    Expression expr = { "-3 * -2", 0 };
+    SECTION("Check expression evaluation")
+    {
+        CHECK(evaluateExpression(&expr, 0) == 6);
+    }
+}
+
 TEST_CASE("Addition of two floating-point operands", "[parser]")
 {
     Expression expr = { "553.2+3.4", 0 };
