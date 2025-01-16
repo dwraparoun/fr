@@ -1,6 +1,8 @@
 #include "parser.h"
 #include <ctype.h>
+#include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 struct Expression initExpression(const char* expr)
 {
@@ -8,7 +10,8 @@ struct Expression initExpression(const char* expr)
     return e;
 }
 
-void consumeCharacter(struct Expression* expr) { expr->currIdx++; }
+void consumeCharacters(struct Expression* expr, unsigned n) { expr->currIdx += n; }
+void consumeCharacter(struct Expression* expr) { consumeCharacters(expr, 1); }
 
 const char* currentHead(struct Expression* expr)
 {
@@ -61,53 +64,50 @@ struct Token_t readToken(struct Expression* expr)
     ret.type = TOK_NONE;
     ret.value = 0.;
     ret.idx = expr->currIdx;
-    switch (currentCharacter(expr)) {
-    case '(':
-        ret.type = TOK_OPEN_PARAN;
-        consumeCharacter(expr);
-        break;
-    case ')':
-        ret.type = TOK_CLOSE_PARAN;
-        consumeCharacter(expr);
-        break;
-    case '0':
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case '7':
-    case '8':
-    case '9':
+    char c = currentCharacter(expr);
+    if (strncmp(currentHead(expr), "sin", 3) == 0) {
+        ret.type = TOK_SINE;
+        consumeCharacters(expr, 3);
+    } else if (strncmp(currentHead(expr), "cos", 3) == 0) {
+        ret.type = TOK_COSINE;
+        consumeCharacters(expr, 3);
+    } else if (strncmp(currentHead(expr), "tan", 3) == 0) {
+        ret.type = TOK_TAN;
+        consumeCharacters(expr, 3);
+    } else if (strncmp(currentHead(expr), "atan", 3) == 0) {
+        ret.type = TOK_ATAN;
+        consumeCharacters(expr, 4);
+    } else if (strncmp(currentHead(expr), "exp", 3) == 0) {
+        ret.type = TOK_EXP;
+        consumeCharacters(expr, 3);
+    } else if (isdigit(c)) {
         ret.type = TOK_NUMBER;
         ret.value = readNumber(expr); //< consumes this and following digit characters
         RETURN_ON_ERROR(expr, ret); //< should never happen
-        break;
-    case '+':
+    } else if (c == '(') {
+        ret.type = TOK_OPEN_PARAN;
+        consumeCharacter(expr);
+    } else if (c == ')') {
+        ret.type = TOK_CLOSE_PARAN;
+        consumeCharacter(expr);
+    } else if (c == '+') {
         ret.type = TOK_PLUS;
         consumeCharacter(expr);
-        break;
-    case '-':
+    } else if (c == '-') {
         ret.type = TOK_MINUS;
         consumeCharacter(expr);
-        break;
-    case '*':
+    } else if (c == '*') {
         ret.type = TOK_MULTIPLY;
         consumeCharacter(expr);
-        break;
-    case '/':
+    } else if (c == '/') {
         ret.type = TOK_DIVIDE;
         consumeCharacter(expr);
-        break;
-    case '\0':
-        break;
-    default:
+    } else if (c == '\0') {
+    } else {
         expr->result = RES_INVALID_CHAR;
         expr->errIdx = expr->currIdx;
         expr->errMsg = "Invalid character";
         consumeCharacter(expr);
-        break;
     }
     return ret;
 }
@@ -115,6 +115,24 @@ struct Token_t readToken(struct Expression* expr)
 void unreadToken(struct Expression* expr, struct Token_t* token)
 {
     expr->currIdx = token->idx; // roll back read pointer
+}
+
+double (*getFunction(enum TokenType type))(double)
+{
+    switch (type) {
+    case TOK_SINE:
+        return &sin;
+    case TOK_COSINE:
+        return &cos;
+    case TOK_TAN:
+        return &tan;
+    case TOK_ATAN:
+        return &tan;
+    case TOK_EXP:
+        return &exp;
+    default:
+        return 0;
+    }
 }
 
 double evaluatePrimary(struct Expression* expr)
@@ -131,14 +149,38 @@ double evaluatePrimary(struct Expression* expr)
     if (token.type == TOK_MINUS)
         return -evaluatePrimary(expr); // e.g. -42.43 or ---42.43
 
+    if (token.type == TOK_SINE || token.type == TOK_COSINE || token.type == TOK_TAN || token.type == TOK_ATAN || token.type == TOK_EXP) {
+        double (*f)(double) = getFunction(token.type);
+        token = readToken(expr);
+        RETURN_ON_ERROR(expr, 0);
+        if (token.type != TOK_OPEN_PARAN) {
+            expr->result = RES_OPEN_PARAN_MISSING;
+            expr->errIdx = expr->currIdx;
+            expr->errMsg = "Open parenthesis missing after sin";
+            return 0;
+        }
+        double fArg = evaluateExpression(expr);
+        RETURN_ON_ERROR(expr, fArg);
+        double result = f(fArg);
+        token = readToken(expr);
+        RETURN_ON_ERROR(expr, result);
+        if (token.type != TOK_CLOSE_PARAN) {
+            expr->result = RES_CLOSE_PARAN_MISSING;
+            expr->errIdx = expr->currIdx;
+            expr->errMsg = "Close parenthesis missing after sin";
+        }
+        return result;
+    }
+
     if (token.type == TOK_OPEN_PARAN) {
         double result = evaluateExpression(expr);
         RETURN_ON_ERROR(expr, result);
         token = readToken(expr);
+        RETURN_ON_ERROR(expr, result);
         if (token.type != TOK_CLOSE_PARAN) {
-            expr->result = RES_CLOSING_PARAN_MISSING;
+            expr->result = RES_CLOSE_PARAN_MISSING;
             expr->errIdx = expr->currIdx;
-            expr->errMsg = "Missing closing brace";
+            expr->errMsg = "Close parenthesis missing";
         }
         return result;
     }
@@ -171,6 +213,7 @@ double evaluateTerm(struct Expression* expr)
             return left;
         }
         token = readToken(expr);
+        RETURN_ON_ERROR(expr, left);
     }
     return left;
 }
@@ -198,6 +241,7 @@ double evaluateExpression(struct Expression* expr)
             return left;
         }
         token = readToken(expr);
+        RETURN_ON_ERROR(expr, left);
     }
     return left;
 }

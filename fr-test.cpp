@@ -1,5 +1,52 @@
 #include "parser.h"
 #include <catch2/catch.hpp>
+#include <math.h>
+
+TEST_CASE("Token reader")
+{
+    SECTION("TOK_OPEN_PARAN")
+    {
+        Expression expr = initExpression("(");
+        CHECK(readToken(&expr).type == TOK_OPEN_PARAN);
+    }
+    SECTION("TOK_CLOSE_PARAN")
+    {
+        Expression expr = initExpression(")");
+        CHECK(readToken(&expr).type == TOK_CLOSE_PARAN);
+    }
+    SECTION("TOK_NUMBER")
+    {
+        Expression expr = initExpression("42.56");
+        struct Token_t tok = readToken(&expr);
+        CHECK(tok.type == TOK_NUMBER);
+        CHECK(tok.value == 42.56);
+    }
+    SECTION("TOK_PLUS")
+    {
+        Expression expr = initExpression("+");
+        CHECK(readToken(&expr).type == TOK_PLUS);
+    }
+    SECTION("TOK_MINUS")
+    {
+        Expression expr = initExpression("-");
+        CHECK(readToken(&expr).type == TOK_MINUS);
+    }
+    SECTION("TOK_MULTIPLY")
+    {
+        Expression expr = initExpression("*");
+        CHECK(readToken(&expr).type == TOK_MULTIPLY);
+    }
+    SECTION("TOK_DIVIDE")
+    {
+        Expression expr = initExpression("/");
+        CHECK(readToken(&expr).type == TOK_DIVIDE);
+    }
+    SECTION("TOK_SINE")
+    {
+        Expression expr = initExpression("sin");
+        CHECK(readToken(&expr).type == TOK_SINE);
+    }
+}
 
 TEST_CASE("Invalid expressions return correct error results", "[parser]")
 {
@@ -150,5 +197,34 @@ TEST_CASE("Multiplication precedence", "[parser]")
     SECTION("Check expression evaluation")
     {
         CHECK(evaluateExpression(&expr) == 10);
+    }
+}
+
+TEST_CASE("Math functions", "[parser]")
+{
+    SECTION("sin")
+    {
+        Expression expr = { "sin(3.14159/2)", 0, RES_OK, 0, "" };
+        CHECK(round(evaluateExpression(&expr)) == 1.0);
+    }
+    SECTION("cos")
+    {
+        Expression expr = { "cos(0)", 0, RES_OK, 0, "" };
+        CHECK(round(evaluateExpression(&expr)) == 1.0);
+    }
+    SECTION("tan")
+    {
+        Expression expr = { "tan(0)", 0, RES_OK, 0, "" };
+        CHECK(round(evaluateExpression(&expr)) == 0.0);
+    }
+    SECTION("atan")
+    {
+        Expression expr = { "atan(0)", 0, RES_OK, 0, "" };
+        CHECK(round(evaluateExpression(&expr)) == 0.0);
+    }
+    SECTION("exp")
+    {
+        Expression expr = { "exp(0)", 0, RES_OK, 0, "" };
+        CHECK(round(evaluateExpression(&expr)) == 1.0);
     }
 }

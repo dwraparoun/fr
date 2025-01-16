@@ -6,7 +6,8 @@ enum ParsingResult {
     RES_OK,
     RES_INVALID_CHAR,
     RES_INVALID_INPUT,
-    RES_CLOSING_PARAN_MISSING,
+    RES_OPEN_PARAN_MISSING,
+    RES_CLOSE_PARAN_MISSING,
     RES_INTERNAL_ERROR, //< also known as 'bug'
 };
 
@@ -27,6 +28,11 @@ enum TokenType {
     TOK_MINUS,
     TOK_MULTIPLY,
     TOK_DIVIDE,
+    TOK_SINE,
+    TOK_COSINE,
+    TOK_TAN,
+    TOK_ATAN,
+    TOK_EXP,
 };
 
 struct Token_t {
