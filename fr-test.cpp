@@ -80,28 +80,19 @@ TEST_CASE("Addition of two integer operands", "[parser]")
         CHECK(currentCharacter(&expr) == '+');
         CHECK(*currentHead(&expr) == '+');
     }
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 556);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 556); }
 }
 
 TEST_CASE("Addition of two negative integers", "[parser]")
 {
     Expression expr = { "-553 + -3", 0, RES_OK, 0, "" };
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == -556);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == -556); }
 }
 
 TEST_CASE("Multiplication of two negative integers", "[parser]")
 {
     Expression expr = { "-3 * -2", 0, RES_OK, 0, "" };
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 6);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 6); }
 }
 
 TEST_CASE("Addition of two floating-point operands", "[parser]")
@@ -113,46 +104,31 @@ TEST_CASE("Addition of two floating-point operands", "[parser]")
         CHECK(currentCharacter(&expr) == '+');
         CHECK(*currentHead(&expr) == '+');
     }
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 556.6);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 556.6); }
 }
 
 TEST_CASE("Addition of two integer operands with whitespace", "[parser]")
 {
     Expression expr = { "    553   +   3     ", 0, RES_OK, 0, "" };
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 556);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 556); }
 }
 
 TEST_CASE("Addition of two integer operands with whitespace and brackets", "[parser]")
 {
     Expression expr = { "  (  553   +   3  )   ", 0, RES_OK, 0, "" };
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 556);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 556); }
 }
 
 TEST_CASE("Addition of three integer operands", "[parser]")
 {
     Expression expr = { "553+3+20", 0, RES_OK, 0, "" };
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 576);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 576); }
 }
 
 TEST_CASE("Addition of three integer operands with whitespace", "[parser]")
 {
     Expression expr = { "    553   +   3     +   20  ", 0, RES_OK, 0, "" };
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 576);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 576); }
 }
 
 TEST_CASE("Addition of three integer operands with whitespace and brackets", "[parser]")
@@ -176,28 +152,19 @@ TEST_CASE("Multiplication of two integer operands", "[parser]")
         CHECK(expr.currIdx == 1);
         CHECK(currentCharacter(&expr) == '*');
     }
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 30);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 30); }
 }
 
 TEST_CASE("Multiplication of two floating point operands", "[parser]")
 {
     Expression expr = { "2.5*2.5", 0, RES_OK, 0, "" };
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 6.25);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 6.25); }
 }
 
 TEST_CASE("Multiplication precedence", "[parser]")
 {
     Expression expr = { "2*3+4", 0, RES_OK, 0, "" };
-    SECTION("Check expression evaluation")
-    {
-        CHECK(evaluateExpression(&expr) == 10);
-    }
+    SECTION("Check expression evaluation") { CHECK(evaluateExpression(&expr) == 10); }
 }
 
 TEST_CASE("Math functions", "[parser]")
