@@ -38,6 +38,7 @@ enum TokenType {
     TOK_TAN,
     TOK_ATAN,
     TOK_EXP,
+    TOK_SQRT,
     TOK_VARIABLE,
 };
 

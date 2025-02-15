@@ -32,7 +32,7 @@ double newton(const char* expr, double x0, double tol)
             break;
         ++i;
         if (i == itermax) {
-            fprintf(stderr, "Failed to converge after %d iterations.",
+            fprintf(stderr, "Failed to converge after %d iterations.\n",
                 itermax); // FIXME write better: |f({x_sym}={guess})| = {curr_tol} <= {tol}");
             exit(EXIT_FAILURE);
         }

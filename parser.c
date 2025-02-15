@@ -78,12 +78,15 @@ struct Token_t readToken(struct Expression* expr)
     } else if (strncmp(currentHead(expr), "tan", 3) == 0) {
         ret.type = TOK_TAN;
         consumeCharacters(expr, 3);
-    } else if (strncmp(currentHead(expr), "atan", 3) == 0) {
+    } else if (strncmp(currentHead(expr), "atan", 4) == 0) {
         ret.type = TOK_ATAN;
         consumeCharacters(expr, 4);
     } else if (strncmp(currentHead(expr), "exp", 3) == 0) {
         ret.type = TOK_EXP;
         consumeCharacters(expr, 3);
+    } else if (strncmp(currentHead(expr), "sqrt", 4) == 0) {
+        ret.type = TOK_SQRT;
+        consumeCharacters(expr, 4);
     } else if (isalpha(c) && expr->nvars == 0) { //< for now only one variable is allowed
         // FIXME variable names can't start with sin/cos/tan/atan/exp :(
         ret.type = TOK_VARIABLE;
@@ -139,6 +142,8 @@ double (*getFunction(enum TokenType type))(double)
         return &tan;
     case TOK_EXP:
         return &exp;
+    case TOK_SQRT:
+        return &sqrt;
     default:
         return 0;
     }
@@ -162,7 +167,7 @@ double evaluatePrimary(struct Expression* expr)
         return -evaluatePrimary(expr); // e.g. -42.43 or ---42.43
 
     if (token.type == TOK_SINE || token.type == TOK_COSINE || token.type == TOK_TAN
-        || token.type == TOK_ATAN || token.type == TOK_EXP) {
+        || token.type == TOK_ATAN || token.type == TOK_EXP || token.type == TOK_SQRT) {
         double (*f)(double) = getFunction(token.type);
         token = readToken(expr);
         RETURN_ON_ERROR(expr, 0);
