@@ -8,7 +8,23 @@
 
 struct Expression initExpression(const char* expr)
 {
-    struct Expression e = { expr, 0, RES_OK, 0, "", 0, 0 };
+    struct Expression e;
+    e.expr = expr;
+    e.currIdx = 0;
+    e.result = RES_OK;
+    e.errIdx = 0;
+    e.errMsg = NULL;
+    struct Variable v;
+    v.value = 0;
+    v.len = 0;
+    e.var = v;
+    return e;
+}
+
+struct Expression initExpressionWithVariable(const char* expr, double varValue)
+{
+    struct Expression e = initExpression(expr);
+    e.var.value = varValue;
     return e;
 }
 
@@ -30,10 +46,9 @@ double readNumber(struct Expression* expr)
 {
     consumeWhitespace(expr);
     if (!isdigit(currentCharacter(expr))) {
-        // should be unreachable
-        expr->result = RES_INTERNAL_ERROR;
+        expr->result = RES_NAN;
         expr->errIdx = expr->currIdx;
-        expr->errMsg = "Internal error";
+        expr->errMsg = "Not a number";
         return 0;
     }
     double num = atof(currentHead(expr));
@@ -48,11 +63,33 @@ double readNumber(struct Expression* expr)
     return num;
 }
 
+bool hasVariable(struct Expression* expr) { return expr->var.len > 0; }
+
 void readVariable(struct Expression* expr)
 {
-    consumeWhitespace(expr);
-    while (isalnum(currentCharacter(expr)))
+    if (hasVariable(expr)) {
+        if (strncmp(currentHead(expr), expr->var.name, expr->var.len) != 0) {
+            expr->result = RES_ERROR_MULTIPLE_VARIABLES;
+            expr->errIdx = expr->currIdx;
+            expr->errMsg = "Multiple variables not allowed";
+            return;
+        }
+        consumeCharacters(expr, expr->var.len);
+        return;
+    }
+    size_t varLen = 0;
+    while (isalnum(currentCharacter(expr))) {
+        expr->var.name[varLen++] = currentCharacter(expr);
         consumeCharacter(expr);
+    }
+    if (varLen >= sizeof(expr->var.name)) {
+        expr->result = RES_VAR_NAME_TOO_LONG;
+        expr->errIdx = expr->currIdx;
+        expr->errMsg = "Variable name too long";
+        return;
+    }
+    expr->var.name[varLen] = '\0';
+    expr->var.len = varLen;
 }
 
 #define RETURN_ON_ERROR(e, r)                                                                      \
@@ -87,11 +124,19 @@ struct Token_t readToken(struct Expression* expr)
     } else if (strncmp(currentHead(expr), "sqrt", 4) == 0) {
         ret.type = TOK_SQRT;
         consumeCharacters(expr, 4);
-    } else if (isalpha(c) && expr->nvars == 0) { //< for now only one variable is allowed
+        // } else if (strncmp(currentHead(expr), "**", 2) == 0) {
+        // ret.type = TOK_POWER;
+        // consumeCharacters(expr, 2);
+        // ret.value = readNumber(expr);
+        // RETURN_ON_ERROR(expr, ret);
+    } else if (isalpha(c)) { //< for now only one variable is allowed
         // FIXME variable names can't start with sin/cos/tan/atan/exp :(
+        // FIXME this is completely broken; only one occurence of variable is possible
         ret.type = TOK_VARIABLE;
-        expr->nvars++;
+        ret.value = expr->var.value;
+        // expr->nvars++;
         readVariable(expr);
+        RETURN_ON_ERROR(expr, ret);
     } else if (isdigit(c)) {
         ret.type = TOK_NUMBER;
         ret.value = readNumber(expr); //< consumes this and following digit characters
@@ -158,7 +203,7 @@ double evaluatePrimary(struct Expression* expr)
         return token.value;
 
     if (token.type == TOK_VARIABLE)
-        return expr->x0;
+        return token.value;
 
     if (token.type == TOK_PLUS)
         return evaluatePrimary(expr); // e.g. +42.43 or +++42.43
@@ -227,6 +272,9 @@ double evaluateTerm(struct Expression* expr)
             left /= evaluatePrimary(expr);
             RETURN_ON_ERROR(expr, left);
             break;
+        // case TOK_POWER:
+        // left = pow(left, token.value);
+        // break;
         default:
             unreadToken(expr, &token);
             return left;

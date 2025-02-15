@@ -1,6 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,17 +13,25 @@ enum ParsingResult {
     RES_INVALID_INPUT,
     RES_OPEN_PARAN_MISSING,
     RES_CLOSE_PARAN_MISSING,
-    RES_INTERNAL_ERROR, //< also known as 'bug'
+    RES_INTERNAL_ERROR, //< euphemism for 'bug' =)
+    RES_NAN,
+    RES_VAR_NAME_TOO_LONG,
+    RES_ERROR_MULTIPLE_VARIABLES,
+};
+
+struct Variable {
+    char name[32];
+    unsigned len; //< excluding '\0', e.g. variable 'a\0' has len=1
+    double value;
 };
 
 struct Expression {
-    const char* const expr;
+    const char* expr;
     unsigned currIdx;
     enum ParsingResult result;
     unsigned errIdx;
     const char* errMsg;
-    double x0;
-    unsigned nvars;
+    struct Variable var;
 };
 
 enum TokenType {
@@ -39,6 +49,7 @@ enum TokenType {
     TOK_ATAN,
     TOK_EXP,
     TOK_SQRT,
+    TOK_POWER,
     TOK_VARIABLE,
 };
 
@@ -49,11 +60,14 @@ struct Token_t {
 };
 
 struct Expression initExpression(const char* expr);
+struct Expression initExpressionWithVariable(const char* expr, double varValue);
 void consumeCharacter(struct Expression* expr);
 void consumeWhitespace(struct Expression* expr);
 const char* currentHead(struct Expression* expr);
 char currentCharacter(struct Expression* expr);
 double readNumber(struct Expression* expr);
+void readVariable(struct Expression* expr);
+bool hasVariable(struct Expression* expr);
 struct Token_t readToken(struct Expression* expr);
 void unreadToken(struct Expression* expr, struct Token_t* token);
 

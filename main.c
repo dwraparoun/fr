@@ -7,14 +7,15 @@
 
 const char* usage() { return "Usage: fr [--tol] [--x0] <expr>"; }
 
-void parseArgs(int argc, char* const* argv, double* argTol, double* argX0)
+void parseArgs(int argc, char* const* argv, double* argTol, double* argX0, unsigned* argNiter)
 {
     if (argc < 2) {
         fprintf(stderr, "%s\n", usage());
         exit(EXIT_FAILURE);
     }
-    const struct option long_options[] = { { "x0", required_argument, 0, 'a' },
-        { "tol", required_argument, 0, 'b' }, { 0, 0, 0, 0 } };
+    const struct option long_options[]
+        = { { "x0", required_argument, 0, 'a' }, { "tol", required_argument, 0, 'b' },
+              { "niter", required_argument, 0, 'c' }, { 0, 0, 0, 0 } };
     for (;;) {
         int option_index = 0;
         int c = getopt_long(argc, argv, "a:b:", long_options, &option_index);
@@ -26,8 +27,15 @@ void parseArgs(int argc, char* const* argv, double* argTol, double* argX0)
             break;
         case 'b':
             *argTol = atof(optarg);
-            if (argTol <= 0) {
+            if (*argTol <= 0) {
                 fprintf(stderr, "--tol must be >0. Got %f\n", *argTol);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'c':
+            *argNiter = atol(optarg);
+            if (*argNiter <= 0) {
+                fprintf(stderr, "--niter must be >0. Got %d\n", *argNiter);
                 exit(EXIT_FAILURE);
             }
             break;
@@ -52,8 +60,8 @@ int main(int argc, char* const* argv)
 {
     double tol = 1e-6;
     double x0 = 0.;
-    parseArgs(argc, argv, &tol, &x0);
-    double result = newton(argv[optind], x0, tol);
-    fprintf(stdout, "%f\n", result);
+    unsigned niter = 50;
+    parseArgs(argc, argv, &tol, &x0, &niter);
+    newton(argv[optind], x0, tol, niter);
     return EXIT_SUCCESS;
 }
