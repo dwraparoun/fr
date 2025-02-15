@@ -1,3 +1,6 @@
+#ifndef PARSER_H
+#define PARSER_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,6 +20,8 @@ struct Expression {
     enum ParsingResult result;
     unsigned errIdx;
     const char* errMsg;
+    double x0;
+    unsigned nvars;
 };
 
 enum TokenType {
@@ -33,6 +38,7 @@ enum TokenType {
     TOK_TAN,
     TOK_ATAN,
     TOK_EXP,
+    TOK_VARIABLE,
 };
 
 struct Token_t {
@@ -55,7 +61,10 @@ void unreadToken(struct Expression* expr, struct Token_t* token);
 double evaluatePrimary(struct Expression* expr);
 double evaluateTerm(struct Expression* expr);
 double evaluateExpression(struct Expression* expr);
+void printParsingError(struct Expression* expr);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

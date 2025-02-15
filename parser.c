@@ -2,12 +2,13 @@
 
 #include <ctype.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 struct Expression initExpression(const char* expr)
 {
-    struct Expression e = { expr, 0, RES_OK, 0, "" };
+    struct Expression e = { expr, 0, RES_OK, 0, "", 0, 0 };
     return e;
 }
 
@@ -47,6 +48,13 @@ double readNumber(struct Expression* expr)
     return num;
 }
 
+void readVariable(struct Expression* expr)
+{
+    consumeWhitespace(expr);
+    while (isalnum(currentCharacter(expr)))
+        consumeCharacter(expr);
+}
+
 #define RETURN_ON_ERROR(e, r)                                                                      \
     do {                                                                                           \
         if (e->result != RES_OK)                                                                   \
@@ -76,6 +84,11 @@ struct Token_t readToken(struct Expression* expr)
     } else if (strncmp(currentHead(expr), "exp", 3) == 0) {
         ret.type = TOK_EXP;
         consumeCharacters(expr, 3);
+    } else if (isalpha(c) && expr->nvars == 0) { //< for now only one variable is allowed
+        // FIXME variable names can't start with sin/cos/tan/atan/exp :(
+        ret.type = TOK_VARIABLE;
+        expr->nvars++;
+        readVariable(expr);
     } else if (isdigit(c)) {
         ret.type = TOK_NUMBER;
         ret.value = readNumber(expr); //< consumes this and following digit characters
@@ -138,6 +151,9 @@ double evaluatePrimary(struct Expression* expr)
 
     if (token.type == TOK_NUMBER)
         return token.value;
+
+    if (token.type == TOK_VARIABLE)
+        return expr->x0;
 
     if (token.type == TOK_PLUS)
         return evaluatePrimary(expr); // e.g. +42.43 or +++42.43
@@ -202,6 +218,7 @@ double evaluateTerm(struct Expression* expr)
             RETURN_ON_ERROR(expr, left);
             break;
         case TOK_DIVIDE:
+            // FIXME check zero!
             left /= evaluatePrimary(expr);
             RETURN_ON_ERROR(expr, left);
             break;
@@ -244,3 +261,22 @@ double evaluateExpression(struct Expression* expr)
 }
 
 #undef RETURN_ON_ERROR
+
+void printParsingError(struct Expression* expr)
+{
+    if (expr->result == RES_OK)
+        return;
+    fprintf(stderr, "Error: %s\n", expr->errMsg);
+    fprintf(stderr, "%s\n", expr->expr);
+    unsigned i = 0;
+    while (expr->expr[i]) {
+        if (expr->errIdx == i)
+            fprintf(stderr, "%c", '^');
+        else
+            fprintf(stderr, "%c", '-');
+        i++;
+    }
+    if (expr->errIdx == i)
+        fprintf(stderr, "%c", '^');
+    fprintf(stderr, "\n");
+}
