@@ -6,7 +6,7 @@
 
 static const char* usage()
 {
-    return "Usage: fr [--tol <tol>] [--x0 <x0>] [--niter <niter>] [--deltax <deltax>] <expr>";
+    return "Usage: fr [--tol <tol>] [--x0 <x0>] [--maxiter <maxiter>] [--deltax <deltax>] <expr>";
 }
 
 static void parseArgs(int argc, char* const* argv, double* argTol, double* argX0, double* argDeltax,
@@ -17,7 +17,7 @@ static void parseArgs(int argc, char* const* argv, double* argTol, double* argX0
         exit(EXIT_FAILURE);
     }
     const struct option long_options[] = { { "x0", required_argument, 0, 'a' },
-        { "tol", required_argument, 0, 'b' }, { "niter", required_argument, 0, 'c' },
+        { "tol", required_argument, 0, 'b' }, { "maxiter", required_argument, 0, 'c' },
         { "deltax", required_argument, 0, 'd' }, { 0, 0, 0, 0 } };
     for (;;) {
         int option_index = 0;
@@ -38,7 +38,7 @@ static void parseArgs(int argc, char* const* argv, double* argTol, double* argX0
         case 'c':
             *argNiter = atol(optarg);
             if (*argNiter <= 0) {
-                fprintf(stderr, "--niter must be >0. Got %d\n", *argNiter);
+                fprintf(stderr, "--maxiter must be >0. Got %d\n", *argNiter);
                 exit(EXIT_FAILURE);
             }
             break;
@@ -66,11 +66,10 @@ static void parseArgs(int argc, char* const* argv, double* argTol, double* argX0
     }
 }
 
-static void newton(const char* expr, double x0, double tol, double deltax, unsigned itermax)
+static void newton(const char* expr, double x0, double tol, double deltax, unsigned maxiter)
 {
-    int i = 0;
-    for (;;) {
-        struct Expression e = initExpressionWithVariable(expr, x0);
+    for (int i = 0;; i++) {
+        struct Expression e = createExpressionWithVariable(expr, x0);
         double f = evaluateExpression(&e);
         if (e.result != RES_OK) {
             printParsingError(&e);
@@ -87,14 +86,14 @@ static void newton(const char* expr, double x0, double tol, double deltax, unsig
             fprintf(stdout, "%s = %f\n", e.var.name, x0);
             exit(EXIT_SUCCESS);
         }
-        if (i == itermax) {
+        if (i == maxiter) {
             fprintf(stderr, "Failed to converge after %d iterations. |f(%s=%f)| = %f > %f\n",
-                itermax, e.var.name, x0, absErr, tol);
+                maxiter, e.var.name, x0, absErr, tol);
             exit(EXIT_FAILURE);
         }
         // compute central derivative
-        struct Expression e2 = initExpressionWithVariable(expr, x0 + deltax);
-        struct Expression e1 = initExpressionWithVariable(expr, x0 - deltax);
+        struct Expression e2 = createExpressionWithVariable(expr, x0 + deltax);
+        struct Expression e1 = createExpressionWithVariable(expr, x0 - deltax);
         double f2 = evaluateExpression(&e2);
         if (e2.result != RES_OK) {
             printParsingError(&e2);
@@ -106,8 +105,13 @@ static void newton(const char* expr, double x0, double tol, double deltax, unsig
             exit(EXIT_FAILURE);
         }
         double fprime = (f2 - f1) / (2. * deltax);
-        x0 -= f / fprime; // FIXME check div by zero
-        ++i;
+        if (fprime == 0) {
+            fprintf(stderr,
+                "Newton algorithm resulted in division by zero: f(%s=%f)=%f - f(%s=%f)=%f = 0\n",
+                e.var.name, x0 + deltax, f2, e.var.name, x0 - deltax, f1);
+            exit(EXIT_FAILURE);
+        }
+        x0 -= f / fprime;
     }
 }
 
@@ -116,8 +120,8 @@ int main(int argc, char* const* argv)
     double tol = 1e-5;
     double deltax = 1e-5; // for derivative calculation
     double x0 = 0.;
-    unsigned niter = 50;
-    parseArgs(argc, argv, &tol, &x0, &deltax, &niter);
-    newton(argv[optind], x0, tol, deltax, niter);
+    unsigned maxiter = 50;
+    parseArgs(argc, argv, &tol, &x0, &deltax, &maxiter);
+    newton(argv[optind], x0, tol, deltax, maxiter);
     return EXIT_SUCCESS;
 }

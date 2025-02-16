@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct Expression initExpression(const char* expr)
+struct Expression createExpression(const char* expr)
 {
     struct Expression e;
     e.expr = expr;
@@ -21,9 +21,9 @@ struct Expression initExpression(const char* expr)
     return e;
 }
 
-struct Expression initExpressionWithVariable(const char* expr, double varValue)
+struct Expression createExpressionWithVariable(const char* expr, double varValue)
 {
-    struct Expression e = initExpression(expr);
+    struct Expression e = createExpression(expr);
     e.var.value = varValue;
     return e;
 }
@@ -42,11 +42,12 @@ void consumeWhitespace(struct Expression* expr)
         consumeCharacter(expr);
 }
 
-double readNumber(struct Expression* expr)
+double readNonNegativeNumber(struct Expression* expr)
 {
+    // note: number is non-negative!
     consumeWhitespace(expr);
     if (!isdigit(currentCharacter(expr))) {
-        expr->result = RES_NAN;
+        expr->result = RES_ERR_INTERNAL;
         expr->errIdx = expr->currIdx;
         expr->errMsg = "Not a number";
         return 0;
@@ -69,7 +70,7 @@ void readVariable(struct Expression* expr)
 {
     if (hasVariable(expr)) {
         if (strncmp(currentHead(expr), expr->var.name, expr->var.len) != 0) {
-            expr->result = RES_ERROR_MULTIPLE_VARIABLES;
+            expr->result = RES_ERR_MULTIPLE_VARIABLES;
             expr->errIdx = expr->currIdx;
             expr->errMsg = "Multiple variables not allowed";
             return;
@@ -83,7 +84,7 @@ void readVariable(struct Expression* expr)
         consumeCharacter(expr);
     }
     if (varLen >= sizeof(expr->var.name)) {
-        expr->result = RES_VAR_NAME_TOO_LONG;
+        expr->result = RES_ERR_VAR_TOO_LONG;
         expr->errIdx = expr->currIdx;
         expr->errMsg = "Variable name too long";
         return;
@@ -127,11 +128,9 @@ struct Token_t readToken(struct Expression* expr)
         // } else if (strncmp(currentHead(expr), "**", 2) == 0) {
         // ret.type = TOK_POWER;
         // consumeCharacters(expr, 2);
-        // ret.value = readNumber(expr);
+        // ret.value = readNonNegativeNumber(expr);
         // RETURN_ON_ERROR(expr, ret);
     } else if (isalpha(c)) { //< for now only one variable is allowed
-        // FIXME variable names can't start with sin/cos/tan/atan/exp :(
-        // FIXME this is completely broken; only one occurence of variable is possible
         ret.type = TOK_VARIABLE;
         ret.value = expr->var.value;
         // expr->nvars++;
@@ -139,7 +138,7 @@ struct Token_t readToken(struct Expression* expr)
         RETURN_ON_ERROR(expr, ret);
     } else if (isdigit(c)) {
         ret.type = TOK_NUMBER;
-        ret.value = readNumber(expr); //< consumes this and following digit characters
+        ret.value = readNonNegativeNumber(expr); //< consumes this and following digit characters
         RETURN_ON_ERROR(expr, ret); //< should never happen
     } else if (c == '(') {
         ret.type = TOK_OPEN_PARAN;
@@ -161,7 +160,7 @@ struct Token_t readToken(struct Expression* expr)
         consumeCharacter(expr);
     } else if (c == '\0') {
     } else {
-        expr->result = RES_INVALID_CHAR;
+        expr->result = RES_ERR_INVALID_CHAR;
         expr->errIdx = expr->currIdx;
         expr->errMsg = "Invalid character";
         consumeCharacter(expr);
@@ -217,7 +216,7 @@ double evaluatePrimary(struct Expression* expr)
         token = readToken(expr);
         RETURN_ON_ERROR(expr, 0);
         if (token.type != TOK_OPEN_PARAN) {
-            expr->result = RES_OPEN_PARAN_MISSING;
+            expr->result = RES_ERR_OPEN_PARAN_MISSING;
             expr->errIdx = expr->currIdx;
             expr->errMsg = "Open parenthesis missing after function";
             return 0;
@@ -228,7 +227,7 @@ double evaluatePrimary(struct Expression* expr)
         token = readToken(expr);
         RETURN_ON_ERROR(expr, result);
         if (token.type != TOK_CLOSE_PARAN) {
-            expr->result = RES_CLOSE_PARAN_MISSING;
+            expr->result = RES_ERR_CLOSE_PARAN_MISSING;
             expr->errIdx = expr->currIdx;
             expr->errMsg = "Close parenthesis missing after function";
         }
@@ -241,13 +240,13 @@ double evaluatePrimary(struct Expression* expr)
         token = readToken(expr);
         RETURN_ON_ERROR(expr, result);
         if (token.type != TOK_CLOSE_PARAN) {
-            expr->result = RES_CLOSE_PARAN_MISSING;
+            expr->result = RES_ERR_CLOSE_PARAN_MISSING;
             expr->errIdx = expr->currIdx;
             expr->errMsg = "Close parenthesis missing";
         }
         return result;
     }
-    expr->result = RES_INVALID_INPUT;
+    expr->result = RES_ERR_INVALID_INPUT;
     expr->errIdx = token.idx;
     expr->errMsg = "Invalid input";
     return 0;
@@ -267,11 +266,18 @@ double evaluateTerm(struct Expression* expr)
             left *= evaluatePrimary(expr);
             RETURN_ON_ERROR(expr, left);
             break;
-        case TOK_DIVIDE:
-            // FIXME check zero!
-            left /= evaluatePrimary(expr);
+        case TOK_DIVIDE: {
+            double right = evaluatePrimary(expr);
             RETURN_ON_ERROR(expr, left);
+            if (right == 0) {
+                expr->result = RES_ERR_DIV_BY_ZERO;
+                expr->errMsg = "Division by zero";
+                expr->errIdx = token.idx;
+                return left;
+            }
+            left /= right;
             break;
+        }
         // case TOK_POWER:
         // left = pow(left, token.value);
         // break;

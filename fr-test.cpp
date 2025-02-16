@@ -2,80 +2,62 @@
 #include <catch2/catch.hpp>
 #include <math.h>
 
-TEST_CASE("Token reader")
-{
-    SECTION("TOK_OPEN_PARAN")
-    {
-        Expression expr = initExpression("(");
-        CHECK(readToken(&expr).type == TOK_OPEN_PARAN);
-    }
-    SECTION("TOK_CLOSE_PARAN")
-    {
-        Expression expr = initExpression(")");
-        CHECK(readToken(&expr).type == TOK_CLOSE_PARAN);
-    }
-    SECTION("TOK_NUMBER")
-    {
-        Expression expr = initExpression("42.56");
-        struct Token_t tok = readToken(&expr);
-        CHECK(tok.type == TOK_NUMBER);
-        CHECK(tok.value == 42.56);
-    }
-    SECTION("TOK_PLUS")
-    {
-        Expression expr = initExpression("+");
-        CHECK(readToken(&expr).type == TOK_PLUS);
-    }
-    SECTION("TOK_MINUS")
-    {
-        Expression expr = initExpression("-");
-        CHECK(readToken(&expr).type == TOK_MINUS);
-    }
-    SECTION("TOK_MULTIPLY")
-    {
-        Expression expr = initExpression("*");
-        CHECK(readToken(&expr).type == TOK_MULTIPLY);
-    }
-    SECTION("TOK_DIVIDE")
-    {
-        Expression expr = initExpression("/");
-        CHECK(readToken(&expr).type == TOK_DIVIDE);
-    }
-    SECTION("TOK_SINE")
-    {
-        Expression expr = initExpression("sin");
-        CHECK(readToken(&expr).type == TOK_SINE);
-    }
-}
+#define CHECK_TOK(expr, tok)                                                                       \
+    do {                                                                                           \
+        SECTION(#expr)                                                                             \
+        {                                                                                          \
+            Expression e = createExpression(expr);                                                 \
+            CHECK(readToken(&e).type == tok);                                                      \
+        }                                                                                          \
+    } while (0)
 
+TEST_CASE("Token reader", "[parser]")
+{
+    CHECK_TOK("", TOK_NONE);
+    CHECK_TOK("(", TOK_OPEN_PARAN);
+    CHECK_TOK(")", TOK_CLOSE_PARAN);
+    CHECK_TOK("33.34", TOK_NUMBER);
+    CHECK_TOK("+", TOK_PLUS);
+    CHECK_TOK("-", TOK_MINUS);
+    CHECK_TOK("*", TOK_MULTIPLY);
+    CHECK_TOK("/", TOK_DIVIDE);
+    CHECK_TOK("sin", TOK_SINE);
+    CHECK_TOK("cos", TOK_COSINE);
+    CHECK_TOK("tan", TOK_TAN);
+    CHECK_TOK("atan", TOK_ATAN);
+    CHECK_TOK("exp", TOK_EXP);
+    CHECK_TOK("sqrt", TOK_SQRT);
+    // CHECK_TOK("", TOK_POWER);
+    CHECK_TOK("myVariable", TOK_VARIABLE);
+}
+#undef CHECK_TOK
+
+#define CHECK_ERR(expr, errcode)                                                                   \
+    do {                                                                                           \
+        SECTION(#expr)                                                                             \
+        {                                                                                          \
+            Expression e = createExpression(expr);                                                 \
+            evaluateExpression(&e);                                                                \
+            CHECK(e.result == errcode);                                                            \
+        }                                                                                          \
+    } while (0)
 TEST_CASE("Invalid expressions return correct error results", "[parser]")
 {
-    SECTION("Invalid character")
-    {
-        Expression expr = initExpression("a");
-        evaluateExpression(&expr);
-        CHECK(expr.result == RES_INVALID_CHAR);
-    }
-    SECTION("Valid integer plus an invalid character")
-    {
-        Expression expr = initExpression("3 + a");
-        evaluateExpression(&expr);
-        CHECK(expr.result == RES_INVALID_CHAR);
-    }
-    SECTION("Valid integer plus a valid integer with an invalid character behind")
-    {
-        Expression expr = initExpression("3 + 3a");
-        evaluateExpression(&expr);
-        CHECK(expr.result == RES_INVALID_CHAR);
-    }
+    CHECK_ERR(":", RES_ERR_INVALID_CHAR);
+    CHECK_ERR("", RES_ERR_INVALID_INPUT);
+    CHECK_ERR("sin5)", RES_ERR_OPEN_PARAN_MISSING);
+    CHECK_ERR("sin(5", RES_ERR_CLOSE_PARAN_MISSING);
+    CHECK_ERR("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", RES_ERR_VAR_TOO_LONG); //< sizeof(Variable.name)
+    CHECK_ERR("a+b", RES_ERR_MULTIPLE_VARIABLES);
 }
+#undef CHECK_ERR
 
 TEST_CASE("Addition of two integer operands", "[parser]")
 {
     Expression expr = { "553+3", 0, RES_OK, 0, "" };
     SECTION("Check overall consistency")
     {
-        CHECK(readNumber(&expr) == 553);
+        CHECK(readNonNegativeNumber(&expr) == 553);
         CHECK(expr.currIdx == 3);
         CHECK(currentCharacter(&expr) == '+');
         CHECK(*currentHead(&expr) == '+');
@@ -100,7 +82,7 @@ TEST_CASE("Addition of two floating-point operands", "[parser]")
     Expression expr = { "553.2+3.4", 0, RES_OK, 0, "" };
     SECTION("Check overall consistency")
     {
-        CHECK(readNumber(&expr) == 553.2);
+        CHECK(readNonNegativeNumber(&expr) == 553.2);
         CHECK(currentCharacter(&expr) == '+');
         CHECK(*currentHead(&expr) == '+');
     }
@@ -148,7 +130,7 @@ TEST_CASE("Multiplication of two integer operands", "[parser]")
     Expression expr = { "5*6", 0, RES_OK, 0, "" };
     SECTION("Check overall consistency")
     {
-        CHECK(readNumber(&expr) == 5);
+        CHECK(readNonNegativeNumber(&expr) == 5);
         CHECK(expr.currIdx == 1);
         CHECK(currentCharacter(&expr) == '*');
     }

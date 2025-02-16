@@ -9,20 +9,20 @@ extern "C" {
 
 enum ParsingResult {
     RES_OK,
-    RES_INVALID_CHAR,
-    RES_INVALID_INPUT,
-    RES_OPEN_PARAN_MISSING,
-    RES_CLOSE_PARAN_MISSING,
-    RES_INTERNAL_ERROR, //< euphemism for 'bug' =)
-    RES_NAN,
-    RES_VAR_NAME_TOO_LONG,
-    RES_ERROR_MULTIPLE_VARIABLES,
+    RES_ERR_INVALID_CHAR,
+    RES_ERR_INVALID_INPUT,
+    RES_ERR_DIV_BY_ZERO,
+    RES_ERR_OPEN_PARAN_MISSING,
+    RES_ERR_CLOSE_PARAN_MISSING,
+    RES_ERR_VAR_TOO_LONG,
+    RES_ERR_MULTIPLE_VARIABLES,
+    RES_ERR_INTERNAL, //< euphemism for 'bug' =)
 };
 
 struct Variable {
     char name[32];
     unsigned len; //< excluding '\0', e.g. variable 'a\0' has len=1
-    double value;
+    double value; //< if parser finds a variable, this value is assigned
 };
 
 struct Expression {
@@ -59,13 +59,13 @@ struct Token_t {
     double value;
 };
 
-struct Expression initExpression(const char* expr);
-struct Expression initExpressionWithVariable(const char* expr, double varValue);
+struct Expression createExpression(const char* expr); //< varValue is zero
+struct Expression createExpressionWithVariable(const char* expr, double varValue);
 void consumeCharacter(struct Expression* expr);
 void consumeWhitespace(struct Expression* expr);
 const char* currentHead(struct Expression* expr);
 char currentCharacter(struct Expression* expr);
-double readNumber(struct Expression* expr);
+double readNonNegativeNumber(struct Expression* expr);
 void readVariable(struct Expression* expr);
 bool hasVariable(struct Expression* expr);
 struct Token_t readToken(struct Expression* expr);
